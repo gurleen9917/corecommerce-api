@@ -1,0 +1,5 @@
+node_modules/
+commerce.db
+commerce.db-shm
+commerce.db-wal
+.env
