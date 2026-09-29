@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CoreCommerce – Transactional Inventory Engine</title>
+  <!-- External stylesheet link -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>CoreCommerce Engine</h1>
+      <p class="subtitle">Premium Developer Hardware & Instant Order Fulfillment</p>
+    </header>
+
+    <div id="productGrid" class="grid">
+      <!-- Injected dynamically via JavaScript -->
+    </div>
+
+    <div class="console-panel">
+      <div class="console-header">Real-Time Transaction Audit Log</div>
+      <div id="logs">
+        <div class="log-entry" style="color: #64748b;">Ready. Select quantity and test atomic checkout...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function loadProducts() {
+      try {
+        const res = await fetch('/api/products');
+        const json = await res.json();
+        const grid = document.getElementById('productGrid');
+        grid.innerHTML = '';
+
+        json.data.forEach(p => {
+          const card = document.createElement('div');
+          card.className = 'card';
+          card.innerHTML = `
+            <div>
+              <h3>${p.name}</h3>
+              <div class="price">$${p.price.toFixed(2)}</div>
+              <div class="stock-badge ${p.stock <= 3 ? 'low-stock' : 'in-stock'}">
+                Stock: ${p.stock} units
+              </div>
+            </div>
+            <div class="order-controls">
+              <input type="number" id="qty-${p.id}" min="1" max="20" value="1" />
+              <button class="btn-primary" onclick="placeOrder(${p.id}, '${p.name}')">Order Now</button>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      } catch (err) {
+        log('Failed to fetch products: ' + err.message, 'error');
+      }
+    }
+
+    async function placeOrder(productId, name) {
+      const quantity = parseInt(document.getElementById(`qty-${productId}`).value, 10);
+      log(`Initiating transaction: Requesting ${quantity}x "${name}"...`);
+
+      try {
+        const res = await fetch('/api/orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: [{ productId, quantity }] })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          log(`[TRANSACTION COMMIT] Order #${data.data.orderId} successful. Total: $${data.data.totalAmount.toFixed(2)}`, 'success');
+          loadProducts();
+        } else {
+          log(`[TRANSACTION ROLLBACK] Aborted: ${data.error}`, 'error');
+        }
+      } catch (err) {
+        log(`[NETWORK FAULT] ` + err.message, 'error');
+      }
+    }
+
+    function log(message, type = '') {
+      const logs = document.getElementById('logs');
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      div.className = `log-entry ${type === 'success' ? 'log-success' : type === 'error' ? 'log-error' : ''}`;
+      div.textContent = `[${time}] ${message}`;
+      logs.prepend(div);
+    }
+
+    loadProducts();
+  </script>
+</body>
+</html>
